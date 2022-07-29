@@ -2,9 +2,9 @@
 
 import subprocess
 import argparse
+from sys import stdout
 
 def export_lic(flag):
-    dumped_lic = []
     condition = int('-1')
     persons = ['agent', 'account']
 
@@ -16,25 +16,23 @@ def export_lic(flag):
 
     for person in persons:
         file_name = 'export_lic_' + person + '.txt'
-        raw_output = subprocess.check_output(["staffcop", "drm", "list", person]).decode('utf-8')
-        output = raw_output.split('\n')
 
-        #Clearing file before writing
+        raw_output = subprocess.check_output(["staffcop", "drm", "list", person]).decode('utf-8')
+        output = raw_output.split('\n') #Why default way don't split?
+
+        #Clearing file before as writing
         with open(file_name, 'w') as op:
             op.write('')
 
-        for line in output:
-            try:
-                line_dict = filter( lambda x: x != '', line.split(' '))
-                check = line_dict[1].find(action) # Check enabled licens
-                if check != condition:
-                    dumped_lic.append(line_dict[0])
-            except:
-                pass
-
         with open(file_name, 'a+') as op:
-            for lic in dumped_lic:
-                op.write(lic + '\n')
+            for line in output:
+                try:
+                    line_dict = filter( lambda x: x != '', line.split(' '))
+                    check = line_dict[1].find(action) #Check enabled licens
+                    if check != condition:
+                        op.write(line_dict[0] + '\n') #Write guid in file
+                except Exception as e:
+                    print e
 
 
 def import_lic(flag, person):
@@ -51,8 +49,18 @@ def import_lic(flag, person):
         for lic in  op.readlines():
             guid = lic.split('\n')[0]
 
-            subprocess.calls(["staffcop", "drm", handler , person, guid])
-            subprocess.calls(["staffcop", "drm", action , person, guid])
+            subprocess.call(["staffcop", "drm", handler , person, guid])
+            subprocess.call(["staffcop", "drm", action , person, guid])
+
+def progress_bar(end): 
+    for start in range(end + 1): 
+        lenght = 10 
+        k = 5 
+        progress = start * 100 / end 
+        left = progress * k / lenght 
+        right = lenght * k - left 
+        stdout.write("\rProgress : [ {} {} ] {}% ".format( left * '#', right * '-', progress ) ) 
+    stdout.write("\n")
 
 #--Start Code of This--#
 parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -78,8 +86,8 @@ parser.add_argument('-r', '--remove', dest='action', action='store_false', requi
 args = parser.parse_args()
 
 if args.dump is True:
-    export_lic(flag=action)
-elif args.person is '':
+    export_lic(flag=args.action)
+elif args.person is not '':
     import_lic(flag=action, person=args.person) # If you want remove licenses choosing flag=False
 else:
     parser.print_help()

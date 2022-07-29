@@ -7,23 +7,6 @@ import pwd
 import grp
 import re 
 
-def create_dir(dir_name='archive', path='' ):
-    #print dir_name
-    #print path
-    try:
-        os.chdir(path)
-    except:
-        create_dir(path)
-
-    if not os.path.isdir(dir_name):
-        os.mkdir(dir_name,0o755)
-        uid = pwd.getpwnam("staffcop").pw_uid
-        gid = grp.getgrnam("staffcop").gr_gid
-        os.chown(dir_name, uid, gid)
-    else:
-        print "Already Directory!"
-
-
 class Data_Bases:
 
     def __init__(self, dbname='staffcop'):
@@ -62,8 +45,6 @@ class Update:
 
     def __init__(self, cold_database, def_path='', flag=''):
         self.con = Data_Bases(cold_database)
-        #self.atttach_files = self.get_data(select,path)
-        self.path = def_path
 
         # If you want move files from the cold storage
         self.flag = flag
@@ -71,21 +52,22 @@ class Update:
 
         #Create a full path to coldbase storage like /var/lib/staffcop/upload/staffcop_archive
         if flag is '':
-            self.middle_path = self.path + cold_database 
-            self.name_database = ''
-            self.flag_condition = ''
-        # If you want move files from the cold storage
+            self.middle_path = def_path + self.name_database
+            self.flag_path_to_folder = self.middle_path
+            self.primary_dir = '/var/lib/staffcop/upload/filedata/by_date/'
+            self.flag_select_condition = ''
+        # If you want to move files from the cold storage
         else :
+            self.primary_dir = def_path
             self.middle_path = 'filedata/by_date' #If flag is false then the "filedata/" path is default 
-            self.start_path = '/var/lib/staffcop/upload/'
-            self.flag_condition = "AND att.data ~ '%s'" % self.name_database
-
+            self.flag_path_to_folder = '/var/lib/staffcop/upload/' + self.middle_path 
+            self.flag_select_condition = "AND att.data ~ '%s'" % self.name_database
 
     def get_data(self, select):
 
         self.con.request(select)
         self.attach_files = self.con.fetch()
-        con.close_con
+        # con.close_con
         return self.attach_files 
 
     def get_folders(self):
@@ -95,22 +77,43 @@ class Update:
             LEFT JOIN agent_attachedfile att 
                 ON ae.attached_file_id = att.id 
             WHERE att.data %s LIKE 'file%%' %s
-            """ % (self.flag, self.flag_condition)
+            """ % (self.flag, self.flag_select_condition)
 
+        # import pdb; pdb.set_trace()
         self.con.request(select_folders)
         self.folders = self.con.fetch()
         return self.folders
 
 
+    def create_dir(self, path='', dir_name=''):
+
+        if os.path.isdir(path):
+            os.chdir(path)
+        elif path is not '' :
+            self.create_dir(dir_name=path)
+            os.chdir(path)
+
+        if not os.path.isdir(dir_name):
+            os.mkdir(dir_name,0o755)
+            uid = pwd.getpwnam("staffcop").pw_uid
+            gid = grp.getgrnam("staffcop").gr_gid
+            os.chown(dir_name, uid, gid)
+        else:
+            print "Already Directory!"
+
+
     #Move on the files
     def move_files(self):
+        # import pdb; pdb.set_trace()
         for folder in self.get_folders():
-            old_path = '{}{}/{}'.format(self.path,self.name_database, folder)
-            new_path = '{}{}/{}'.format(self.start_path, self.middle_path,folder)
+            old_path = '{}{}'.format(self.primary_dir, folder)
+            new_path = '{}{}'.format(self.flag_path_to_folder, folder)
+
+            self.create_dir(path=self.flag_path_to_folder, dir_name=folder)
 
             try:
                 os.renames(old_path, new_path)
-                print 'Directory {} was moved to {}'.format(old_path,new_path)
+                print 'Directory {} was moved to {}'.format(old_path, new_path)
             except Exception as e :
                 print '{} {} !\n'.format(e, old_path)
 
@@ -118,17 +121,16 @@ class Update:
         count = 0
         #Make absolyte path to file ##/var/lib/staffcop/upload/archive_db/2022_04_06/c2695b75d0c85acd06d5b4a6c7d53207a20ae7ec.png
         for clear_file in self.attach_files :
-            new_absolute_path_to_file = '{}/{}'.format(self.middle_path,clear_file) 
+            new_absolute_path_to_file = '{}/{}'.format(self.middle_path, clear_file) 
 
             #Updating links into DB
-            update_query = "UPDATE agent_attachedfile SET data='{}' WHERE data LIKE '%{}';".format(new_absolute_path_to_file,clear_file) #clear_file is search condition
+            update_query = "UPDATE agent_attachedfile SET data='{}' WHERE data LIKE '%{}';".format(new_absolute_path_to_file, clear_file) #clear_file is search condition
 
             self.con.request(update_query)
-            # print update_query
             count = count + 1
 
         self.con.com()
-        self.con.close_con()
+        # self.con.close_con()
         print "\n\n{} Links into Database {} Updated!\n".format(count,self.name_database)
 
 # Start code of this
@@ -143,7 +145,7 @@ args = parser.parse_args()
 if args.path:
     path = path + '/'
 else:
-    path = '/var/lib/staffcop/upload/'
+    path = '/var/lib/staffcop/upload/filedata/by_date/colds_files/'
 
 
 #For move to files from cold storage into default path
@@ -183,10 +185,9 @@ con.close_con
 for database in db_name:
     up = Update(database, def_path=path, flag=flag)
     up.get_data(select_old_data)
-    try:
-        up.update_links()
-        up.get_folders()
-        # up.move_files()
-    except Exception as e:
-        print "Error : %s" % e
-        raise SystemExit
+    # try:
+    up.move_files()
+    up.update_links()
+    # except Exception as e:
+        # print "Error : %s" % e
+        # raise SystemExit

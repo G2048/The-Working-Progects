@@ -1,6 +1,7 @@
 #!/usr/share/staffcop/env18/bin/python2
-import sys
-import time
+
+from sys import stdout
+# import time
 
 
 def progress_bar(end):
@@ -14,9 +15,9 @@ def progress_bar(end):
         left = progress * k / lenght 
         right = lenght * k - left
         spin = spinner[ start % 4 ]
-        #sys.stdout.write("\rProgress : [ {} {} ] {}% ".format( left * '#', right * '-', progress ) )
-        sys.stdout.write("\r%sProgress :%s [ %s%s ] %s %d%% " % ( GREEN, NC, left * '#', right * '-',spin ,progress ) )
-#        time.sleep(0.01)
-    sys.stdout.write("\n")    
+        # sys.stdout.write("\rProgress : [ {} {} ] {}% ".format( left * '#', right * '-', progress ) )
+        stdout.write("\r%sProgress :%s [ %s%s ] %s %d%% " % ( GREEN, NC, left * '#', right * '-',spin ,progress ) )
+        # time.sleep(0.01)
+    stdout.write("\n")    
 
 progress_bar(20000000)
