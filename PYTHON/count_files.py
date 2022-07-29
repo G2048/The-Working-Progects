@@ -3,6 +3,9 @@
 import psycopg2
 import os.path
 import re
+from datetime import datetime 
+import time 
+start_time = datetime.now()
 
 
 full_path = '/var/lib/staffcop/upload/filedata/by_date/'
@@ -49,9 +52,13 @@ def Pull_files(path):
 def Deleting(supply):
     count = 0
     for path in supply:
+        try:
             os.remove(path)
             print "{} deleting!".format(path)
             count += 1
+        except Exception as e:
+            count -= 1
+            print e
     return count
 
 
@@ -99,3 +106,5 @@ print "\nOrfaned Files Into Storage: {}".format(len(files_for_deleting))
 choose = raw_input('Are you Want to delete files? (Yes/No) ')
 if ("y" or "Y") in choose:
 	print "DELETING {} Files.".format(Deleting(files_for_deleting))
+
+print(datetime.now() - start_time)
