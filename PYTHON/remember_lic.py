@@ -1,12 +1,42 @@
 #!/usr/share/staffcop/env18/bin/python2
+#Created by FW_IX
 
 import subprocess
 import argparse
+from enum import Enum
 from sys import stdout
 
+def cli_parser():
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, add_help=False, 
+            description = """This is script created for exporting and importing agents and accounts licenses.
+        You have to use option '--export' to export and agents and accounts licenses. 
+        After that you have to use option '--import' to import either agents or accounts licenses.
+
+If you want to remove licenses or to select agents or accounts with released, you have add key '--remove'.
+    Examples:
+        ./remember_lic.py --export --remove 
+        ./remember_lic.py --import --remove
+                        """)
+
+    exclusion_group = parser.add_argument_group('Primary action', 'Use to select actions. This selection is mutually exclusive!')
+    exclusion_group.add_argument('-e', '--export', dest='dump', action='store_true', required=False, 
+                                help='''Create two export files "export_lic_account.txt" and "export_lic_agent.txt" 
+                                        with agents/accounts licens in curent directory
+                                ''')
+    exclusion_group.add_argument('-i', '--import', dest='person', choices=['agent', 'account'], 
+                                required=False, help='Allocate agents/accounts licens')
+
+    parser.add_argument('-r', '--remove', dest='action', action='store_false', required=False, help='Remove licenses (Optional)')
+    parser.add_argument('-h', '--help', dest='help', action='help', 
+                        help='Show this help message and exit.')
+
+    return parser.parse_args()
+
+
 def export_lic(flag):
+    numbers_files = 0
     condition = int('-1')
-    persons = ['agent', 'account']
+    persons = ('agent', 'account')
 
     #Select removed or allocated licenses
     if flag is True:
@@ -18,7 +48,7 @@ def export_lic(flag):
         file_name = 'export_lic_' + person + '.txt'
 
         raw_output = subprocess.check_output(["staffcop", "drm", "list", person]).decode('utf-8')
-        output = raw_output.split('\n') #Why default way don't split?
+        output = raw_output.split('\n')[:-1]        #Why it isn't split? [:-1] using for deleting last empty string
 
         #Clearing file before as writing
         with open(file_name, 'w') as op:
@@ -27,18 +57,19 @@ def export_lic(flag):
         with open(file_name, 'a+') as op:
             for line in output:
                 try:
-                    line_dict = filter( lambda x: x != '', line.split(' '))
-                    check = line_dict[1].find(action) #Check enabled licens
-                    if check != condition:
-                        op.write(line_dict[0] + '\n') #Write guid in file
+                    line_dict = filter(lambda x: x != '', line.split(' '))
+                    check = line_dict[1].find(action)               #Check enabled or not licens
+                    check_long_guid = line_dict[0].find(action)     #For long SID 
+                    # if check != condition:
+                    if (check != condition) or (check_long_guid != condition):
+                        op.write(line_dict[0] + '\n')       #Write guid in file
                 except Exception as e:
                     print e
 
-
-def import_lic(flag, person):
+def import_lic(flag_action, person):
     file_name = 'export_lic_' + person + '.txt'
 
-    if flag is True :
+    if flag_action is True:
         handler= 'enable'
         action = 'allocate'
     else:
@@ -52,42 +83,20 @@ def import_lic(flag, person):
             subprocess.call(["staffcop", "drm", handler , person, guid])
             subprocess.call(["staffcop", "drm", action , person, guid])
 
-def progress_bar(end): 
-    for start in range(end + 1): 
-        lenght = 10 
-        k = 5 
-        progress = start * 100 / end 
-        left = progress * k / lenght 
-        right = lenght * k - left 
-        stdout.write("\rProgress : [ {} {} ] {}% ".format( left * '#', right * '-', progress ) ) 
-    stdout.write("\n")
+class Actions(Enum):
+
+    STATUS_EXPORT = True
+    STATUS_ENTITY = None
+
 
 #--Start Code of This--#
-parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-        description = """This is script created for export/import licens.
-    You must use option '--export' for export and agents and accounts licenses. 
-    Next step, this is using option '--import' either agents or accounts licenses.
+args = cli_parser()
 
-If you want remove or select a removed licenses choose key '--remove'. 
-    Examples:
-        ./remember_lic.py --export --remove 
-        ./remember_lic.py --import --remove""")
+if args.dump is Actions.STATUS_EXPORT.value:
+    export_lic(flag = args.action)
 
-exclusion_group = parser.add_argument_group('Primary action', 'Use to select actions')
-
-exclusion_group.add_argument('-e', '--export', dest='dump', action='store_true', 
-        required=False, help='Create two export files "export_lic_account.txt" and "export_lic_agent.txt"  with agents/accounts licens in curent directory')
-
-exclusion_group.add_argument('-i', '--import', dest='person', choices=['agent', 'account'],
-        required=False, help='Allocate agents/accounts licens')
-
-parser.add_argument('-r', '--remove', dest='action', action='store_false', required=False, help='Remove licenses (Optional)')
-
-args = parser.parse_args()
-
-if args.dump is True:
-    export_lic(flag=args.action)
-elif args.person is not '':
-    import_lic(flag=action, person=args.person) # If you want remove licenses choosing flag=False
+elif args.person is not Actions.STATUS_ENTITY.value:       #Check existing agent/accounts entity
+    import_lic(flag_action = args.action, person = args.person)
 else:
-    parser.print_help()
+    print "You have add the '--help' key to view the options"
+    # args.help
